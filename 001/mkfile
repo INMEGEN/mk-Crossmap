@@ -1,0 +1,10 @@
+< config.mk
+
+results/%.GRCh38.vcf.gz:Q:	data/%.vcf.gz
+	echo "[DEBUGGING] converting coordinates to $target"
+	CrossMap.py vcf \
+	$CHAIN \
+	$prereq	\
+	$REFERENCE \
+	target.build \
+	&& mv $target.build $target
