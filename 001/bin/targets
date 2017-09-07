@@ -4,4 +4,4 @@ find -L data/ \
 -type f \
 -name "*.vcf.gz" \
 | sed -e "s#data/#results/#" \
--e "s#.vcf.gz#.GRCh38.vcf.gz#g"
+-e "s#.vcf.gz#.converted_to_GRCh38.vcf.gz#g"
