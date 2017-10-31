@@ -1,10 +1,26 @@
 < config.mk
 
-results/%.GRCh38.vcf.gz:Q:	data/%.vcf.gz
+results/%.converted_to_GRCh38.vcf.gz:Q:	results/%.tmp.header results/%.tmp.body
+	set -x
+	mkdir -p `dirname $target`
+
+results/%.tmp.header: results/%.tmp
+	set -x
+	mkdir -p `dirname $target`
+	bcftools view -h $prereq > $target.build \
+	&& mv $target.buid $target
+
+results/%.tmp.body:
+	set -x
+	mkdir -p `dirname $target`
+
+results/%.tmp: data/%.vcf.gz
+	set -x
+	mkdir -p `dirname $target`
 	echo "[DEBUGGING] converting coordinates to $target"
-	CrossMap.py vcf \
+	$CROSSMAP vcf \
 	$CHAIN \
 	$prereq	\
 	$REFERENCE \
-	target.build \
+	$target.build \
 	&& mv $target.build $target
