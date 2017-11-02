@@ -1,26 +1,49 @@
 < config.mk
 
-results/%.converted_to_GRCh38.vcf.gz:Q:	results/%.tmp.header results/%.tmp.body
+results/%.converted.vcf.gz:Q:	results/%.converted.vcf
 	set -x
 	mkdir -p `dirname $target`
+#	$BCFTOOLS sort 
+#	bgzip -c $prereq > $target.build \
+#	&& tabix -p vcf $target.build \
+#	&& mv $target.build $target \
+#	&& mv $target.build.tbi $target.tbi #\
+#	&& rm $prereq
 
-results/%.tmp.header: results/%.tmp
+results/%.converted.vcf: results/%.tmp.header results/%.tmp.body
 	set -x
 	mkdir -p `dirname $target`
-	bcftools view -h $prereq > $target.build \
-	&& mv $target.buid $target
+#	cat $prereq > $target.build \
+#	&& mv $target.build $target \
+#	&& rm $prereq
 
-results/%.tmp.body:
+results/%.tmp.header: results/%.converted.raw
 	set -x
 	mkdir -p `dirname $target`
+#	$BCFTOOLS view -h $prereq > $target.build \
+#	&& mv $target.build $target
 
-results/%.tmp: data/%.vcf.gz
+##Remove variants with "N" as reference allele; replace MT for "M"; and replace line start (^) with "chr";
+results/%.tmp.body: results/%.converted.raw
+	set -x
+	mkdir -p `dirname $target`
+#	$BCFTOOLS view -H $prereq \
+#	| awk ' BEGIN { FS="\t"; OFS="\t"; }
+#		$4 !~ /N/ {
+#			if ( $1 == "MT" ) $1="M";
+#			print "chr"$0
+#			} ' \
+#	> $target.build \
+#	&& mv $target.build $target
+
+##Convert 
+results/%.converted.raw: data/%.vcf.gz
 	set -x
 	mkdir -p `dirname $target`
 	echo "[DEBUGGING] converting coordinates to $target"
 	$CROSSMAP vcf \
 	$CHAIN \
 	$prereq	\
-	$REFERENCE \
+	$TARGET_REFERENCE \
 	$target.build \
 	&& mv $target.build $target
