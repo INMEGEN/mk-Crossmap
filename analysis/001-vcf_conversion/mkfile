@@ -8,7 +8,7 @@ results/%.converted.vcf.gz:Q: results/%.converted.vcf
 	&& tabix -p vcf $target.build \
 	&& mv $target.build $target \
 	&& mv $target.build.tbi $target.tbi \
-	&& rm -r $prereq results/$stem*contigs.list results/$stem.blocks
+	&& rm $prereq
 
 ##Convert between assemblies
 #
@@ -40,7 +40,7 @@ results/%.valid_over.chain.gz: results/%.chain_block_location
 	&& grep -v -f results/$stem.missing_ochain_contigs.list results/$stem.block_paths | sort -n \
 	| xargs cat | gzip -c > $target.build \
 	&& mv $target.build $target \
-	&& rm $prereq results/$stem.block_paths results/$stem.*contigs.list
+	&& rm -r $prereq results/$stem.block_paths results/$stem.*contigs.list results/$stem.blocks
 
 results/%.chain_block_location: results/%.pre-processing-check
 	set -x
