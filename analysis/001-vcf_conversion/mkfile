@@ -1,0 +1,74 @@
+< config.mk
+
+results/%.converted.vcf.gz:Q: results/%.converted.vcf
+	set -x
+	mkdir -p `dirname $target`
+	$BCFTOOLS sort $prereq \
+	| bgzip -c > $target.build \
+	&& tabix -p vcf $target.build \
+	&& mv $target.build $target \
+	&& mv $target.build.tbi $target.tbi \
+	&& rm -r $prereq results/$stem*contigs.list results/$stem.blocks
+
+##Convert between assemblies
+#
+results/%.converted.vcf: results/%.valid_over.chain.gz
+	set -x
+	mkdir -p `dirname $target`
+	echo "[DEBUGGING] converting coordinates to $target"
+	$CROSSMAP \
+		vcf \
+		$prereq \
+		data/$stem.vcf.gz \
+		$TARGET_REFERENCE \
+		$target.build \
+	&& mv $target.build $target \
+	&& mv $target.build.unmap $target.unamapped_positions
+
+results/%.valid_over.chain.gz: results/%.chain_block_location
+	set -x
+	mkdir -p `dirname $target`/$stem.blocks
+	while read p
+	do
+		OFNAME=$(dirname $target)/$stem.blocks/$(echo $p | cut -d" " -f1,2 | tr " " ".").block
+		BLOCKSTART=$(echo $p | cut -d" " -f3)
+		BLOCKEND=$(echo $p | cut -d" " -f4)
+		zcat $CHAIN \
+		| sed -n "$BLOCKSTART,$BLOCKEND p" > $OFNAME
+	done < $prereq \
+	&& ls results/$stem.blocks/*.block > results/$stem.block_paths \
+	&& grep -v -f results/$stem.missing_ochain_contigs.list results/$stem.block_paths | sort -n \
+	| xargs cat | gzip -c > $target.build \
+	&& mv $target.build $target \
+	&& rm $prereq results/$stem.block_paths results/$stem.*contigs.list
+
+results/%.chain_block_location: results/%.pre-processing-check
+	set -x
+	mkdir -p `dirname $target`
+	zgrep -n "^chain" $CHAIN | tr ":" " " | cut -d" " -f1,9 > results/$stem.block_starts \
+	&& zgrep -n "^$" $CHAIN | cut -d":" -f1 > results/$stem.block_ends \
+	&& paste -d" " results/$stem.block_starts results/$stem.block_ends \
+	| awk ' {print NR,$2,$1,$3} ' > $target.build \
+	&& mv $target.build $target \
+	&& rm results/$stem.block_*
+
+##get contig names and sizes from: input_vcf (from header), col 3 from chain file "^chain" lines; target_reference (fasta headers)
+#
+results/%.pre-processing-check:V:
+	set -x
+	mkdir -p `dirname $target`
+	echo "[DEBUGGING] checking contig names"
+	$BCFTOOLS view -h data/$stem.vcf.gz | grep "^##contig=<ID=" | cut -d"," -f1 | cut -d"=" -f3 \
+		> results/$stem.ivcf_contigs.list \
+	&& zgrep "^chain" $CHAIN | cut -d" " -f3 | sort -u \
+		> results/$stem.ichain_contigs.list \
+	&& grep "^>" $TARGET_REFERENCE | cut -d" " -f1 | tr -d ">" \
+		> results/$stem.ofasta_contigs.list \
+	&& zgrep "^chain" $CHAIN | cut -d" " -f8 | sort -u \
+		> results/$stem.ochain_contigs.list \
+	&& echo "The following input contigs won't be translated since chain files does not have the required info
+		$(grep -v -x -f results/$stem.ichain_contigs.list results/$stem.ivcf_contigs.list | sed "s#^#\t#")" \
+	&& grep -v -x -f results/$stem.ofasta_contigs.list results/$stem.ochain_contigs.list | sort -u | sed -e "s#^#\.#" -e "s#\$#\.#" > results/$stem.missing_ochain_contigs.list \
+	&& echo "The following output contigs won't be translated since target reference fasta file does not have the required contig name
+		$(cat results/$stem.missing_ochain_contigs.list | sed "s#^#\t#")" #\
+	#&& rm results/*.list
